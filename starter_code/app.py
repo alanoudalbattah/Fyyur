@@ -8,7 +8,7 @@ import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate # * NEW
+from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
@@ -19,14 +19,24 @@ from forms import *
 
 app = Flask(__name__)
 moment = Moment(app)
-app.config.from_object('config')
-db = SQLAlchemy(app)
+app.config.from_object('config') # * configured in the config.py file --------> DB name: fyyur
+db = SQLAlchemy(app) # link an instance of a database to interact with :)
+migrate = Migrate(app, db) #to use migrations :) 
 
-# TODO: connect to a local postgresql database
-
+# ? HOW TO USE MIGRATION in the cmd line
+#--> use [ flask db init ] to create a migration
+#--> use [ flask db migrate ] to sync models
+#--> use [ flask db upgrade ] and [ flask db downgrade ] to upgrade & downgrade versions of migrations
+# TODO: connect to a local postgresql database ✅
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
+
+# many to many relationship, linked by an intermediary table.
+shows = db.Table('shows',
+    db.Column('venue_id', db.Integer, db.ForeignKey('Venue.id'), primary_key=True),
+    db.Column('artist_id', db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
+)
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
@@ -39,8 +49,9 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    artist = db.relationship('Artist', secondary=shows, backref=db.backref('venue', lazy=True))
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
@@ -54,10 +65,9 @@ class Artist(db.Model):
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-
+# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.✅
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
@@ -109,6 +119,8 @@ def venues():
       "num_upcoming_shows": 0,
     }]
   }]
+
+# data=Venue.query.all()
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
@@ -221,14 +233,34 @@ def create_venue_form():
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
+  # TODO: modify data to be the data object returned from db insertion 
+  try:
+      new_venue = Venue(
+        name=request.form['name'],
+        city=request.form['city'],
+        state=request.form['state'],
+        address=request.form['address'],
+        phone=request.form['phone'],
+        genres=request.form.getlist('genres'),
+        image_link=request.form['image_link'],
+        facebook_link=request.form['facebook_link']
+        )
+      db.session.add(new_venue) 
+      db.session.commit()
+      # on successful db insert, flash success
+      flash('Venue ' + new_venue.name + ' was successfully listed!')
+      return render_template('pages/home.html')  
+  except:
+      # TODO: on unsuccessful db insert, flash an error instead.✅
+      # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
+      # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+     # flash('An error occurred. Artist ' + new_venue.name + ' could not be listed.')
+      db.session.rollback()
+  finally:
+      db.session.close()
 
-  # on successful db insert, flash success
-  flash('Venue ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+
+
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -416,12 +448,27 @@ def create_artist_submission():
   # called upon submitting the new artist listing form
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-
-  # on successful db insert, flash success
-  flash('Artist ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-  return render_template('pages/home.html')
+  new_artist = Artist(
+        name=request.form.get('name'),
+        city=request.form.get('city'),
+        state=request.form.get('state'),
+        phone=request.form.get('phone'),
+        genres=request.form.get('genres'),
+        image_link=request.form.get('image_link'),
+        facebook_link=request.form.get('facebook_link'),
+        ).venue = [1]
+  try:
+      db.session.add(new_artist) 
+      db.session.commit()
+      # on successful db insert, flash success
+      flash('Artist ' + new_artist.name + ' was successfully listed!')
+      return render_template('pages/home.html')  
+  except:
+  # TODO: on unsuccessful db insert, flash an error instead.✅
+      flash('An error occurred. Artist ' + new_artist.name + ' could not be listed.')
+      db.session.rollback()
+  finally:
+      db.session.close()
 
 
 #  Shows

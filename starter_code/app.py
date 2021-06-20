@@ -1,7 +1,6 @@
 #----------------------------------------------------------------------------#
 # Imports
 #----------------------------------------------------------------------------#
-
 import json
 import dateutil.parser
 import babel
@@ -10,7 +9,7 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import logging
-from logging import Formatter, FileHandler
+from logging import Formatter, FileHandler, error
 from flask_wtf import Form
 from forms import *
 #----------------------------------------------------------------------------#
@@ -23,7 +22,7 @@ app.config.from_object('config') # * configured in the config.py file --------> 
 db = SQLAlchemy(app) # link an instance of a database to interact with :)
 migrate = Migrate(app, db) #to use migrations :) 
 
-# ? HOW TO USE MIGRATION in the cmd line
+# ? HOW TO USE MIGRATION in the cmd line <<< NOTE TO MY SELF :) >>>
 #--> use [ flask db init ] to create a migration
 #--> use [ flask db migrate ] to sync models
 #--> use [ flask db upgrade ] and [ flask db downgrade ] to upgrade & downgrade versions of migrations
@@ -31,43 +30,7 @@ migrate = Migrate(app, db) #to use migrations :)
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
-
-# many to many relationship, linked by an intermediary table.
-shows = db.Table('shows',
-    db.Column('venue_id', db.Integer, db.ForeignKey('Venue.id'), primary_key=True),
-    db.Column('artist_id', db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
-)
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    artist = db.relationship('Artist', secondary=shows, backref=db.backref('venue', lazy=True))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.✅
+from models import * #✅
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
@@ -222,7 +185,7 @@ def show_venue(venue_id):
   data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
   return render_template('pages/show_venue.html', venue=data)
 
-#  Create Venue
+#  Create Venue #✅
 #  ----------------------------------------------------------------
 
 @app.route('/venues/create', methods=['GET'])
@@ -234,6 +197,7 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion 
+  name = request.form['name']
   try:
       new_venue = Venue(
         name=request.form['name'],
@@ -242,27 +206,33 @@ def create_venue_submission():
         address=request.form['address'],
         phone=request.form['phone'],
         genres=request.form.getlist('genres'),
+        facebook_link=request.form['facebook_link'],
         image_link=request.form['image_link'],
-        facebook_link=request.form['facebook_link']
+        website_link=request.form['website_link'],
+        #if seeking_talent exists in the reacived form then make it True else the box is unchecked therefore False:)
+        looking_for_talent= True if 'seeking_talent' in request.form else False, 
+        seeking_description=request.form['seeking_description'],
         )
       db.session.add(new_venue) 
       db.session.commit()
       # on successful db insert, flash success
-      flash('Venue ' + new_venue.name + ' was successfully listed!')
+      flash('Venue '+name+' was successfully Created!')
       return render_template('pages/home.html')  
   except:
-      # TODO: on unsuccessful db insert, flash an error instead.✅
+      # TODO: on unsuccessful db insert, flash an error instead.
       # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
       # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
      # flash('An error occurred. Artist ' + new_venue.name + ' could not be listed.')
+      flash('An error occurred. Venue '+ name + ' could not be Created!.')
       db.session.rollback()
+      form = VenueForm()
+      return render_template('forms/new_venue.html', form=form) 
   finally:
       db.session.close()
 
 
 
-
-@app.route('/venues/<venue_id>', methods=['DELETE'])
+@app.route('/venues/<venue_id>', methods=['DELETE'])#❌ DELETE #❌	
 def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
@@ -273,7 +243,7 @@ def delete_venue(venue_id):
 
 #  Artists
 #  ----------------------------------------------------------------
-@app.route('/artists')
+@app.route('/artists')#❌ READ #❌	
 def artists():
   # TODO: replace with real data returned from querying the database
   data=[{
@@ -288,7 +258,7 @@ def artists():
   }]
   return render_template('pages/artists.html', artists=data)
 
-@app.route('/artists/search', methods=['POST'])
+@app.route('/artists/search', methods=['POST'])#❌	SEARCH #❌	
 def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
@@ -303,7 +273,7 @@ def search_artists():
   }
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
-@app.route('/artists/<int:artist_id>')
+@app.route('/artists/<int:artist_id>') #❌	READ #❌	
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
@@ -381,7 +351,7 @@ def show_artist(artist_id):
   data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
   return render_template('pages/show_artist.html', artist=data)
 
-#  Update
+#  Update #❌	UPDATE #❌	
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
@@ -402,14 +372,14 @@ def edit_artist(artist_id):
   # TODO: populate form with fields from artist with ID <artist_id>
   return render_template('forms/edit_artist.html', form=form, artist=artist)
 
-@app.route('/artists/<int:artist_id>/edit', methods=['POST'])
+@app.route('/artists/<int:artist_id>/edit', methods=['POST']) #❌	UPDATE #❌	
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
 
   return redirect(url_for('show_artist', artist_id=artist_id))
 
-@app.route('/venues/<int:venue_id>/edit', methods=['GET'])
+@app.route('/venues/<int:venue_id>/edit', methods=['GET']) #❌	UPDATE #❌	
 def edit_venue(venue_id):
   form = VenueForm()
   venue={
@@ -429,16 +399,16 @@ def edit_venue(venue_id):
   # TODO: populate form with values from venue with ID <venue_id>
   return render_template('forms/edit_venue.html', form=form, venue=venue)
 
-@app.route('/venues/<int:venue_id>/edit', methods=['POST'])
+@app.route('/venues/<int:venue_id>/edit', methods=['POST']) #❌	UPDATE #❌	
 def edit_venue_submission(venue_id):
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
   return redirect(url_for('show_venue', venue_id=venue_id))
 
-#  Create Artist
+#  Create Artist #✅
 #  ----------------------------------------------------------------
 
-@app.route('/artists/create', methods=['GET'])
+@app.route('/artists/create', methods=['GET']) 
 def create_artist_form():
   form = ArtistForm()
   return render_template('forms/new_artist.html', form=form)
@@ -448,30 +418,37 @@ def create_artist_submission():
   # called upon submitting the new artist listing form
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
-  new_artist = Artist(
-        name=request.form.get('name'),
-        city=request.form.get('city'),
-        state=request.form.get('state'),
-        phone=request.form.get('phone'),
-        genres=request.form.get('genres'),
-        image_link=request.form.get('image_link'),
-        facebook_link=request.form.get('facebook_link'),
-        ).venue = [1]
+  name = request.form['name']
   try:
+      new_artist = Artist(
+        name=name,
+        city=request.form['city'],
+        state=request.form['state'],
+        phone=request.form['phone'],
+        genres=request.form.getlist('genres'),
+        facebook_link=request.form['facebook_link'],
+        image_link=request.form['image_link'],
+        website_link=request.form['website_link'],
+        #if seeking_venue exists in the reacived form then make it True else the box is unchecked therefore False:)
+        looking_for_venues= True if 'seeking_venue' in request.form else False, 
+        seeking_description=request.form['seeking_description'],
+        )
       db.session.add(new_artist) 
       db.session.commit()
       # on successful db insert, flash success
-      flash('Artist ' + new_artist.name + ' was successfully listed!')
+      flash('Artist ' + name + ' was successfully listed!')
       return render_template('pages/home.html')  
   except:
-  # TODO: on unsuccessful db insert, flash an error instead.✅
-      flash('An error occurred. Artist ' + new_artist.name + ' could not be listed.')
+  # TODO: on unsuccessful db insert, flash an error instead.
+      flash('An error occurred. Artist ' + name + ' could not be listed.')
       db.session.rollback()
+      form = ArtistForm()
+      return render_template('forms/new_artist.html', form=form) 
   finally:
       db.session.close()
 
 
-#  Shows
+#  Shows #❌	READ #❌	
 #  ----------------------------------------------------------------
 
 @app.route('/shows')
@@ -517,23 +494,64 @@ def shows():
   }]
   return render_template('pages/shows.html', shows=data)
 
-@app.route('/shows/create')
+@app.route('/shows/create') 
 def create_shows():
-  # renders form. do not touch.
+  # renders form. do not touch. ----> OK :)
   form = ShowForm()
   return render_template('forms/new_show.html', form=form)
 
-@app.route('/shows/create', methods=['POST'])
+@app.route('/shows/create', methods=['POST']) #❌ CREATE #❌	
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
-  # TODO: insert form data as a new Show record in the db, instead
+  # TODO: insert form data as a new Show record in the db, instead 
+  try:
+      venue_id = request.form['venue_id']
+      flash(venue_id)
+      artist_id = request.form['artist_id']
+      flash(artist_id)
+      venue = Venue.query.filter_by(id=venue_id).first()
+      flash(venue)
+      artist =  Artist.query.filter_by(id=artist_id).first()
+      flash(artist)
+      # we have to cheack whether the id is correct or not before creating a show so the show whould be genuine!!!!
+      #? HOW DO WE DO IT ?
+      #* simplly by fetching the id from the db and cheaking if it is equals to the value we got 
+      #* why ? because the value of quering the id and not founding it whould still resaults to TRUE 
+      #* Therefore, if it is a list that contains the same value as the id - it supposed to if it is found assumingly! -
+      #* then everything should be fine otherwise the value whould be true which is not equal to an id other than 0 i supoose and 
+      #* we dont have zeros as an id therefore this code should be working properly :) in sha allah ....
+      #? check types using type(<var>) method 
+      if int(venue_id) == venue.id and int(artist_id) == artist.id:
+        flash(int(venue_id) == venue.id and int(artist_id) == artist.id)
+        flash(type(venue))
+        flash(type(artist))
+        artist.performers.append(venue)
+        flash(artist.performers.append(venue))
+        #db.session.add() 
+        db.session.commit()
+        flash('Show was successfully listed!')
+      else: flash('nooooooooooo')
+      
+      # on successful db insert, flash success
+      
+      return render_template('pages/home.html')
+  except:
+      #in case no id of either artist and venue is found or incase a show exists already :)
+      #? how should i explain it to the user in a freindly message ? --- Later
+      # TODO: on unsuccessful db insert, flash an error instead.
+      # e.g., flash('An error occurred. Show could not be listed.')
+      # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+      flash('An error occurred. Show could not be listed.')
+      db.session.rollback()
+      form = ShowForm()
+      return render_template('forms/new_show.html', form=form) 
+  finally:
+      db.session.close()
 
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Show could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+
+
+# FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS #
+
 
 @app.errorhandler(404)
 def not_found_error(error):

@@ -45,6 +45,34 @@ def format_datetime(value, format='medium'):
 
 app.jinja_env.filters['datetime'] = format_datetime
 
+
+
+#----------------------------------------------------------------------------#
+# Custiomized Functions
+#----------------------------------------------------------------------------#
+def search(db_class, skey):
+  # <<Stand Out>> Implement Search Artists by City and State, and Search Venues by City and State.
+  # Searching by "San Francisco, CA" should return all artists or venues in San Francisco, CA.
+  #src: https://hackersandslackers.com/database-queries-sqlalchemy-orm/
+
+  
+  # ---> "ColumnOperators.like() renders the LIKE operator, which is case insensitive on some backends, and case sensitive on others."
+  # ---> "For guaranteed case-insensitive comparisons, use ColumnOperators.ilike()." src: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
+
+  data=[]
+  results = db.session.query(db_class).filter(db_class.name.ilike(f'%{skey}%')|db_class.city.ilike(f'%{skey}%')|db_class.state.ilike(f'%{skey}%')).all()
+  for result in results:
+    data.append({
+      "id": result.id,
+      "name": result.name,
+      "num_upcoming_shows": len(db.session.query(Show).filter(Show.venue_id == result.id).filter(Show.start_time > datetime.now()).all()),
+    })
+  results_data={
+    "count": len(results),
+    "data": data
+  }
+  return results_data
+
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
@@ -65,6 +93,9 @@ def venues():
   # then based on the number of upcoming shows they should be ordered.
   data = [] # a list containig all view results
   groups = db.session.query(Venue.city, Venue.state).group_by(Venue.city, Venue.state).all()
+  if not groups: 
+    flash('no venues exists') 
+    return render_template('pages/venues.html')
   for group in groups:
     venues = db.session.query(Venue).filter_by(city=group[0], state=group[1]).all()
     venues_list = [] # a list containig all venues for each group
@@ -84,25 +115,7 @@ def venues():
 @app.route('/venues/search', methods=['POST'])#✅ SEARCH #✅
 def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-  # ---> "ColumnOperators.like() renders the LIKE operator, which is case insensitive on some backends, and case sensitive on others."
-  # ---> "For guaranteed case-insensitive comparisons, use ColumnOperators.ilike()." src: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
-  data = []
-  skey = request.form.get('search_term', '')
-  # <<Stand Out>> Implement Search Artists by City and State, and Search Venues by City and State.
-  # Searching by "San Francisco, CA" should return all artists or venues in San Francisco, CA.
-  results = db.session.query(Venue).filter(Venue.name.ilike(f'%{skey}%')|Venue.city.ilike(f'%{skey}%')|Venue.state.ilike(f'%{skey}%')).all()
-  for result in results:
-    data.append({
-      "id": result.id,
-      "name": result.name,
-      "num_upcoming_shows": len(db.session.query(Show).filter(Show.venue_id == result.id).filter(Show.start_time > datetime.now()).all()),
-    })
-  results_data={
-    "count": len(results),
-    "data": data
-  }
-  #src: https://hackersandslackers.com/database-queries-sqlalchemy-orm/
-  return render_template('pages/search_venues.html', results=results_data, search_term=skey)
+  return render_template('pages/search_venues.html', results=search(Venue, request.form.get('search_term', '')), search_term=request.form.get('search_term', ''))
 
 @app.route('/venues/<int:venue_id>')#✅ READ #✅
 def show_venue(venue_id):
@@ -132,14 +145,14 @@ def show_venue(venue_id):
   #? SIMPLE 
   #!# data['past_shows'].append({db.session.query()})
   #! data['past_shows_count']=len(past_shows)
-  all_past_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time<datetime.now()).all()
+  all_past_shows = db.session.query(Show).join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time<datetime.now()).all()
   past_shows_list = []
 
   for past_show in all_past_shows:
     past_shows_list.append({
-      "artist_id": past_show.artist_id,
-      "artist_name": past_show.artist.name,
-      "artist_image_link": past_show.artist.image_link,
+      "venue_id": past_show.artist_id,
+      "venue_name": past_show.artist.name,
+      "venue_image_link": past_show.artist.image_link,
       "start_time": past_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
     })
 
@@ -148,15 +161,15 @@ def show_venue(venue_id):
   #! data['upcoming_shows'].append({db.session.query()})
   #! data['upcoming_shows_count']=len(upcoming_shows)
 
-  all_upcoming_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
+  all_upcoming_shows = db.session.query(Show).join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
   upcoming_shows_list = []
 
-  for show in all_upcoming_shows:
+  for upcomming_show in all_upcoming_shows:
     upcoming_shows_list.append({
-      "artist_id": show.artist_id,
-      "artist_name": show.artist.name,
-      "artist_image_link": show.artist.image_link,
-      "start_time": show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
+      "venue_id": upcomming_show.artist_id,
+      "venue_name": upcomming_show.artist.name,
+      "venue_image_link": upcomming_show.artist.image_link,
+      "start_time": upcomming_show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
     })
 
   data['upcoming_shows'] = upcoming_shows_list
@@ -211,10 +224,11 @@ def create_venue_submission():
 
 
 @app.route('/venues/<venue_id>/del', methods=['DELETE'])#✅ DELETE #✅	
-def delete_venue(venue_id):#! you tested this method using postman review later :)
+def delete_venue(venue_id):#! you tested this method using postman review later :) 403!!!! WHY
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   try:
+    flash('Entered')
     v = db.session.query(Venue).filter_by(id=venue_id).first()   
     #there is two cases 
     # 1 - the venue dose not exists in the db which is a problem since the user should not
@@ -223,14 +237,16 @@ def delete_venue(venue_id):#! you tested this method using postman review later 
     if not v:
       flash('The Venue is not found !!!!!!!!!!!!!!!!!!!!!')
       return redirect('/venues'+venue_id)
-    
-    db.session.delete(v)
-    db.session.commit()
+    elif not v.artists:
+      db.session.delete(v)
+      db.session.commit()
     # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
     # clicking that button delete it from the db then redirect the user to the homepage
-    flash('The Venue is Successfully Deleted')
-    return redirect('/venues')
-    
+      flash('The Venue is Successfully Deleted')
+      return redirect('/venues')
+    else:  
+      flash('Sorry, The Venue can not be deleted because it is linked to a show')#? can it though ...
+      return redirect('/venues'+venue_id)
   except:
     error('exception occurred!')
     db.session.rollback()
@@ -245,6 +261,9 @@ def artists():
   # TODO: replace with real data returned from querying the database
   data = []
   artists = db.session.query(Artist).all()
+  if not artists: 
+    flash('no artists exists') 
+    return render_template('pages/artists.html')
   for artist in artists:
     data.append({
       "id": artist.id,
@@ -254,19 +273,9 @@ def artists():
 
 @app.route('/artists/search', methods=['POST'])#✅	SEARCH #✅
 def search_artists():
-  # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-  search_key = request.form.get('search_term', '')
-  # <<Stand Out>> Implement Search Artists by City and State.
-  response = db.session.query(Artist).filter(
-       Artist.name.ilike(search_key+'%') 
-    or Artist.city.ilike(search_key+'%') 
-    or Artist.state.ilike(search_key+'%')
-  ).all()
-  # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-  # search for "band" should return "The Wild Sax Band".
-  return render_template('pages/search_artists.html', results=response, search_term=search_key)
+  return render_template('pages/search_artists.html', results=search(Artist, request.form.get('search_term', '')), search_term=request.form.get('search_term', ''))
 
-@app.route('/artists/<int:artist_id>') #❌	READ #❌	
+@app.route('/artists/<int:artist_id>') #✅	READ #✅
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
@@ -289,13 +298,41 @@ def show_artist(artist_id):
     "upcoming_shows_count": 0,
   }
   
+  #? first take all shows past/upcomming from the db
+  #? next append them in the suitable format to the list :)
+  #? SIMPLE 
   #!# data['past_shows'].append({db.session.query()})
   #! data['past_shows_count']=len(past_shows)
+  all_past_shows = db.session.query(Show).join(Artist).filter(Show.artist_id==artist_id).filter(Show.start_time<datetime.now()).all()
+  past_shows_list = []
 
+  for past_show in all_past_shows:
+    past_shows_list.append({
+      "artist_id": past_show.artist_id,
+      "artist_name": past_show.artist.name,
+      "artist_image_link": past_show.artist.image_link,
+      "start_time": past_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+    })
 
+  data['past_shows'] = past_shows_list
+  data['past_shows_count'] = len(past_shows_list)
   #! data['upcoming_shows'].append({db.session.query()})
   #! data['upcoming_shows_count']=len(upcoming_shows)
 
+  all_upcoming_shows = db.session.query(Show).join(Artist).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
+  upcoming_shows_list = []
+
+  for upcomming_show in all_upcoming_shows:
+    upcoming_shows_list.append({
+      "artist_id": upcomming_show.artist_id,
+      "artist_name": upcomming_show.artist.name,
+      "artist_image_link": upcomming_show.artist.image_link,
+      "start_time": upcomming_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+      
+    })
+
+  data['upcoming_shows'] = upcoming_shows_list
+  data['upcoming_shows_count'] = len(upcoming_shows_list)
   return render_template('pages/show_artist.html', artist=data)
 
 #  Update 	
@@ -315,7 +352,6 @@ def edit_artist(artist_id):
     form.website_link.data = artist.website
     form.seeking_venue.data = artist.seeking_venue
     form.seeking_description.data = artist.seeking_description
-    form.image_link.data = artist.image_link
   else: flash('artist not found')
   # TODO: populate form with fields from artist with ID <artist_id>
   return render_template('forms/edit_artist.html', form=form, artist=artist)
@@ -413,9 +449,9 @@ def create_artist_submission():
         genres=request.form.getlist('genres'),
         facebook_link=request.form['facebook_link'],
         image_link=request.form['image_link'],
-        website_link=request.form['website_link'],
+        website=request.form['website_link'],
         #if seeking_venue exists in the reacived form then make it True else the box is unchecked therefore False:)
-        looking_for_venues= True if 'seeking_venue' in request.form else False, 
+        seeking_venue= True if 'seeking_venue' in request.form else False, 
         seeking_description=request.form['seeking_description'],
         )
       db.session.add(new_artist) 
@@ -443,6 +479,9 @@ def shows():
   #       num_shows should be aggregated based on number of upcoming shows per venue. #????
   data = []
   shows = db.session.query(Show).all()
+  if not shows: 
+    flash('no shows exists') 
+    return render_template('pages/shows.html')
   for show in shows:
     data.append({
      "venue_id": show.venue_id,

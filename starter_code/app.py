@@ -443,6 +443,10 @@ def create_artist_submission():
   # TODO: modify data to be the data object returned from db insertion
   name = request.form['name']
   try:
+      name_reserved = db.session.query(Artist).filter_by(name=name).first()
+      if name_reserved: 
+        flash('venue name reserved')
+        return render_template('forms/new_venue.html') 
       new_artist = Artist(
         name=name,
         city=request.form['city'],

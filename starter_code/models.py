@@ -22,8 +22,8 @@ class Venue(db.Model):
     genres = db.Column(db.String(120), nullable=False)
     facebook_link = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-    website_link = db.Column(db.String(120))
-    looking_for_talent = db.Column(db.Boolean)
+    website = db.Column(db.String(120))
+    seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
     artists = db.relationship('Artist', secondary=shows, backref=db.backref('performs', lazy=True))
 

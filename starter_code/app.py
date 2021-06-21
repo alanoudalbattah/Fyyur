@@ -153,7 +153,7 @@ def show_venue(venue_id):
       "venue_id": past_show.artist_id,
       "venue_name": past_show.artist.name,
       "venue_image_link": past_show.artist.image_link,
-      "start_time": past_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+      "start_time": format_datetime(str(past_show.start_time))
     })
 
   data['past_shows'] = past_shows_list
@@ -169,7 +169,7 @@ def show_venue(venue_id):
       "venue_id": upcomming_show.artist_id,
       "venue_name": upcomming_show.artist.name,
       "venue_image_link": upcomming_show.artist.image_link,
-      "start_time": upcomming_show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
+      "start_time": format_datetime(str(upcomming_show.start_time)) 
     })
 
   data['upcoming_shows'] = upcoming_shows_list
@@ -311,7 +311,7 @@ def show_artist(artist_id):
       "artist_id": past_show.artist_id,
       "artist_name": past_show.artist.name,
       "artist_image_link": past_show.artist.image_link,
-      "start_time": past_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+      "start_time": format_datetime(str(past_show.start_time))
     })
 
   data['past_shows'] = past_shows_list
@@ -327,7 +327,7 @@ def show_artist(artist_id):
       "artist_id": upcomming_show.artist_id,
       "artist_name": upcomming_show.artist.name,
       "artist_image_link": upcomming_show.artist.image_link,
-      "start_time": upcomming_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+      "start_time": format_datetime(str(upcomming_show.start_time))
       
     })
 

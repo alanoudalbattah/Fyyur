@@ -3,7 +3,12 @@ from app import db
 
 #" When using the relationship.backref parameter instead of relationship.back_populates, 
 # the backref will automatically use the same relationship.secondary argument for the reverse relationship: "
-# src: https://docs.sqlalchemy.org/en/14/orm/basic_relationships.html
+
+
+#? Difference between association models and association table
+# " The association object pattern is a variant on many-to-many: it’s used when your association table contains
+# additional columns beyond those which are foreign keys to the left and right tables. Instead of using the secondary
+# argument, you map a new class directly to the association table. " src: https://docs.sqlalchemy.org/en/14/orm/basic_relationships.html#many-to-many
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
@@ -20,7 +25,7 @@ class Venue(db.Model):
     website = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    artists = db.relationship("Artist", secondary="Show")
+    artists = db.relationship("Artist", secondary="shows", lazy=True)
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
@@ -38,18 +43,22 @@ class Artist(db.Model):
     website = db.Column(db.String(120))
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    venue = db.relationship("Venue", secondary="Show")
+    venue = db.relationship("Venue", secondary="shows", lazy=True)
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
 class Show(db.Model):
-    __tablename__ = 'Show'
+    __tablename__ = 'shows'
     id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), primary_key=True),
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), primary_key=True),
-    start_time = db.Column(db.DateTime, nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
+    start_time = db.Column(db.DateTime)
+ 
+    venue = db.relationship(Venue, backref=db.backref("Show", lazy=True))
+    artist = db.relationship(Artist, backref=db.backref("Show", lazy=True))
 
-    venue = db.relationship(Venue, backref=db.backref("shows", cascade="all, delete-orphan", lazy=True))
-    product = db.relationship(Artist, backref=db.backref("shows", cascade="all, delete-orphan", lazy=True))
-
+#src: 
+# https://michaelcho.me/article/many-to-many-relationships-in-sqlalchemy-models-flask/ 
+# https://docs.sqlalchemy.org/en/14/orm/basic_relationships.html#many-to-many
+# i used these links to help me model the many to many relationship using a class instead of an asstioation table 
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.✅

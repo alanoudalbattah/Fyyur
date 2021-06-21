@@ -63,7 +63,6 @@ def venues():
   #       num_shows should be aggregated based on number of upcoming shows per venue.
   # first venues for the same city and state shoud be aggregated using group_by :).
   # then based on the number of upcoming shows they should be ordered.
-  #? from least to most or from most to least ? 
   data = [] # a list containig all view results
   groups = db.session.query(Venue.city, Venue.state).group_by(Venue.city, Venue.state).all()
   for group in groups:
@@ -73,7 +72,7 @@ def venues():
       venues_list.append({
         "id": venue.id,
         "name": venue.name,
-        "num_upcoming_shows": 0,#! come solve this later !!!!
+        "num_upcoming_shows": len(db.session.query(Show).filter(Show.venue_id == venue.id).filter(Show.start_time > datetime.now()).all())
       })
     data.append({
       "city":group[0],
@@ -88,36 +87,22 @@ def search_venues():
   # ---> "ColumnOperators.like() renders the LIKE operator, which is case insensitive on some backends, and case sensitive on others."
   # ---> "For guaranteed case-insensitive comparisons, use ColumnOperators.ilike()." src: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
   data = []
-  search_key = request.form.get('search_term', '')
+  skey = request.form.get('search_term', '')
   # <<Stand Out>> Implement Search Artists by City and State, and Search Venues by City and State.
   # Searching by "San Francisco, CA" should return all artists or venues in San Francisco, CA.
-  responses = db.session.query(Venue).filter_by(
-    name=Venue.name.ilike(search_key+'%'), 
-    city=Venue.city.ilike(search_key+'%'),
-    state=Venue.state.ilike(search_key+'%')
-  ).all()
-  for response in responses:
+  results = db.session.query(Venue).filter(Venue.name.ilike(f'%{skey}%')|Venue.city.ilike(f'%{skey}%')|Venue.state.ilike(f'%{skey}%')).all()
+  for result in results:
     data.append({
-      "id": response.get('id'),
-      "name": response.get('name'),
-      "num_upcoming_shows": 0,
+      "id": result.id,
+      "name": result.name,
+      "num_upcoming_shows": len(db.session.query(Show).filter(Show.venue_id == result.id).filter(Show.start_time > datetime.now()).all()),
     })
-  result =[{
-    "count": len(responses),
+  results_data={
+    "count": len(results),
     "data": data
-  }]
-  #?to test?  
-  # seach for Hop should return "The Musical Hop".
-  # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  #response={
-  #  "count": 1,
-  #  "data": [{
-  #    "id": 2,
-  #    "name": "The Dueling Pianos Bar",
-  #    "num_upcoming_shows": 0,
-  #  }]
-  #}
-  return render_template('pages/search_venues.html', results=result, search_term=search_key)
+  }
+  #src: https://hackersandslackers.com/database-queries-sqlalchemy-orm/
+  return render_template('pages/search_venues.html', results=results_data, search_term=skey)
 
 @app.route('/venues/<int:venue_id>')#✅ READ #✅
 def show_venue(venue_id):
@@ -142,13 +127,41 @@ def show_venue(venue_id):
     "past_shows_count": 0,
     "upcoming_shows_count": 0,
   }
+  #? first take all shows past/upcomming from the db
+  #? next append them in the suitable format to the list :)
+  #? SIMPLE 
   #!# data['past_shows'].append({db.session.query()})
   #! data['past_shows_count']=len(past_shows)
+  all_past_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time<datetime.now()).all()
+  past_shows_list = []
 
+  for past_show in all_past_shows:
+    past_shows_list.append({
+      "artist_id": past_show.artist_id,
+      "artist_name": past_show.artist.name,
+      "artist_image_link": past_show.artist.image_link,
+      "start_time": past_show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+    })
 
+  data['past_shows'] = past_shows_list
+  data['past_shows_count'] = len(past_shows_list)
   #! data['upcoming_shows'].append({db.session.query()})
   #! data['upcoming_shows_count']=len(upcoming_shows)
-  
+
+  all_upcoming_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
+  upcoming_shows_list = []
+
+  for show in all_upcoming_shows:
+    upcoming_shows_list.append({
+      "artist_id": show.artist_id,
+      "artist_name": show.artist.name,
+      "artist_image_link": show.artist.image_link,
+      "start_time": show.start_time.strftime("%Y-%m-%d %H:%M:%S")    
+    })
+
+  data['upcoming_shows'] = upcoming_shows_list
+  data['upcoming_shows_count'] = len(upcoming_shows_list)
+
   return render_template('pages/show_venue.html', venue=data)
 #src: https://www.guru99.com/python-dictionary-append.html
 #  Create Venue #✅
@@ -202,7 +215,7 @@ def delete_venue(venue_id):#! you tested this method using postman review later 
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   try:
-    v = Venue.query.get(venue_id)   
+    v = db.session.query(Venue).filter_by(id=venue_id).first()   
     #there is two cases 
     # 1 - the venue dose not exists in the db which is a problem since the user should not
     # have access to the venue in the first place !!! 
@@ -210,16 +223,14 @@ def delete_venue(venue_id):#! you tested this method using postman review later 
     if not v:
       flash('The Venue is not found !!!!!!!!!!!!!!!!!!!!!')
       return redirect('/venues'+venue_id)
-    elif not v.artists:
-      db.session.delete(v)
-      db.session.commit()
+    
+    db.session.delete(v)
+    db.session.commit()
     # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
     # clicking that button delete it from the db then redirect the user to the homepage
-      flash('The Venue is Successfully Deleted')
-      return redirect('/venues')
-    else:  
-      flash('Sorry, The Venue can not be deleted because it is linked to a show')
-      return redirect('/venues'+venue_id)
+    flash('The Venue is Successfully Deleted')
+    return redirect('/venues')
+    
   except:
     error('exception occurred!')
     db.session.rollback()
@@ -422,7 +433,7 @@ def create_artist_submission():
       db.session.close()
 
 
-#  Shows #❌	READ #❌	
+#  Shows	#✅ READ #✅
 #  ----------------------------------------------------------------
 
 @app.route('/shows')
@@ -431,15 +442,15 @@ def shows():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue. #????
   data = []
-  venues = db.session.query(Venue).all()
-  for venue in venues.artists:
+  shows = db.session.query(Show).all()
+  for show in shows:
     data.append({
-     "venue_id": "",
-     "venue_name": "",
-     "artist_id": artist.id,
-     "artist_name": artist.name,
-     "artist_image_link":artist.image_link,
-     "start_time": ""
+     "venue_id": show.venue_id,
+     "venue_name": show.venue.name,
+     "artist_id": show.artist_id,
+     "artist_name": show.artist.name,
+     "artist_image_link":show.artist.image_link,
+     "start_time": str(show.start_time)
    })
   return render_template('pages/shows.html', shows=data)
 
@@ -452,46 +463,28 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST']) #✅ CREATE #✅	
 def create_show_submission():
-  # called to create new shows in the db, upon submitting new show listing form
-  # TODO: insert form data as a new Show record in the db, instead 
-  try:
-      venue_id = request.form['venue_id']
-      artist_id = request.form['artist_id']
-
-      venue = Venue.query.filter_by(id=venue_id).first()
-      artist =  Artist.query.filter_by(id=artist_id).first()
-      # we have to cheack whether the id is correct or not before creating a show so the show whould be genuine!!!!
-      #? HOW DO WE DO IT ?
-      #* simplly by fetching the id from the db and cheaking if it is equals to the value we got 
-      #* why ? because the value of quering the id and not founding it whould still resaults to TRUE 
-      #* Therefore, if it is a list that contains the same value as the id - it supposed to if it is found assumingly! -
-      #* then everything should be fine otherwise the value whould be true which is not equal to an integer
-      #* this code should be working properly :) 
-      #? check types using type(<var>) method 
-      if int(venue_id) == venue.id and int(artist_id) == artist.id:
-        venue.artists.append(artist)
-        #!venue.artists.start_time=request.form['start_time']
-        db.session.add(venue)
-        db.session.commit()
-        flash('Show was successfully listed!')
-      else: flash('nooooooooooo')
-      # on successful db insert, flash success
-      return render_template('pages/home.html')
-  except:
-      #in case no id of either artist and venue is found or incase a show exists already :)
-      #? how should i explain it to the user in a freindly message ? --- Later
-      # TODO: on unsuccessful db insert, flash an error instead.
-      # e.g., flash('An error occurred. Show could not be listed.')
-      # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-      flash('An error occurred. Show could not be listed.')
+    #* need to check the integrity of the identifiers for both the venue and the artist
+    venue_id = request.form['venue_id']
+    artist_id = request.form['artist_id']
+    venue = db.session.query(Venue).filter_by(id=venue_id).first()
+    artist = db.session.query(Artist).filter_by(id=artist_id).first()
+    if not venue:
+      flash("the Venue ID is wrong")
+      return redirect('/shows/create')
+    if not artist:
+      flash("the Artest ID is wrong")
+      return redirect('/shows/create')
+    try:
+      db.session.add(Show(venue_id=venue_id, artist_id=artist_id, start_time = dateutil.parser.parse(request.form['start_time'])))
+      db.session.commit()
+      flash('Show was successfully listed!')
+      return redirect('/shows')
+    except:
       db.session.rollback()
-      form = ShowForm()
-      return render_template('forms/new_show.html', form=form) 
-  finally:
-      db.session.close()
-#src: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html 
-
-# FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS ## FINISHEEEEED CONGRAAADS #
+      flash('An error occurred. Show could not be listed.')
+      return redirect('/shows/create')
+    finally:
+      db.session.close() 
 
 @app.errorhandler(404)
 def not_found_error(error):

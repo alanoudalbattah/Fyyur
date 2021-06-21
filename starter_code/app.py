@@ -45,8 +45,6 @@ def format_datetime(value, format='medium'):
 
 app.jinja_env.filters['datetime'] = format_datetime
 
-
-
 #----------------------------------------------------------------------------#
 # Custiomized Functions
 #----------------------------------------------------------------------------#
@@ -191,8 +189,12 @@ def create_venue_submission():
   # TODO: modify data to be the data object returned from db insertion 
   name = request.form['name']
   try:
+      name_reserved = db.session.query(Venue).filter_by(name=name).first()
+      if name_reserved: 
+        flash('venue name reserved')
+        return render_template('forms/new_venue.html') 
       new_venue = Venue(
-        name=request.form['name'],
+        name=name,
         city=request.form['city'],
         state=request.form['state'],
         address=request.form['address'],

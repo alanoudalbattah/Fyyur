@@ -9,7 +9,7 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import logging
-from logging import Formatter, FileHandler, error
+from logging import Formatter, FileHandler, error, exception
 from flask_wtf import Form
 from forms import *
 #----------------------------------------------------------------------------#
@@ -57,11 +57,19 @@ def index():
 #  Venues
 #  ----------------------------------------------------------------
 
-@app.route('/venues')
+@app.route('/venues')#❌ READ #❌
 def venues():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
+  response=Venue.query.all()
+  
+
+
+
+
+
+  return render_template('pages/venues.html', areas=response);
+data=[{
     "city": "San Francisco",
     "state": "CA",
     "venues": [{
@@ -83,25 +91,43 @@ def venues():
     }]
   }]
 
-# data=Venue.query.all()
-  return render_template('pages/venues.html', areas=data);
 
-@app.route('/venues/search', methods=['POST'])
+
+
+
+
+
+
+
+
+
+@app.route('/venues/search', methods=['POST'])#✅ SEARCH #✅
 def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
+  # ---> "ColumnOperators.like() renders the LIKE operator, which is case insensitive on some backends, and case sensitive on others."
+  # ---> "For guaranteed case-insensitive comparisons, use ColumnOperators.ilike()." src: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
+  search_key = request.form.get('search_term', '')
+  # <<Stand Out>> Implement Search Artists by City and State, and Search Venues by City and State.
+  # Searching by "San Francisco, CA" should return all artists or venues in San Francisco, CA.
+  response = db.session.query(Venue).filter(
+      Venue.name.ilike(search_key+'%') 
+    or Venue.city.ilike(search_key+'%') 
+    or Venue.state.ilike(search_key+'%')
+  ).all()
+  #?to test?  
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }
-  return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+  #response={
+  #  "count": 1,
+  #  "data": [{
+  #    "id": 2,
+  #    "name": "The Dueling Pianos Bar",
+  #    "num_upcoming_shows": 0,
+  #  }]
+  #}
+  return render_template('pages/search_venues.html', results=response, search_term=search_key)
 
-@app.route('/venues/<int:venue_id>')
+@app.route('/venues/<int:venue_id>')#❌ READ #❌
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
@@ -232,14 +258,35 @@ def create_venue_submission():
 
 
 
-@app.route('/venues/<venue_id>', methods=['DELETE'])#❌ DELETE #❌	
-def delete_venue(venue_id):
+@app.route('/venues/<venue_id>/del', methods=['DELETE'])#✅ DELETE #✅	
+def delete_venue(venue_id):#! you tested this method using postman review later :)
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
-
-  # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-  # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+  try:
+    v = Venue.query.get(venue_id)   
+    #there is two cases 
+    # 1 - the venue dose not exists in the db which is a problem since the user should not
+    # have access to the venue in the first place !!! 
+    # 2 - the venue is linked to a show ... for now ill just assume that the user simply can't delete the venue. 
+    if not v:
+      flash('The Venue is not found !!!!!!!!!!!!!!!!!!!!!')
+      return redirect('/venues'+venue_id)
+    elif not v.artists:
+      db.session.delete(v)
+      db.session.commit()
+    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
+    # clicking that button delete it from the db then redirect the user to the homepage
+      flash('The Venue is Successfully Deleted')
+      return redirect('/venues')
+    else:  
+      flash('Sorry, The Venue can not be deleted because it is linked to a show')
+      return redirect('/venues'+venue_id)
+  except:
+    error('exception occurred!')
+    db.session.rollback()
+    return redirect('/venues'+venue_id)
+  finally:
+    db.session.close()
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -258,20 +305,19 @@ def artists():
   }]
   return render_template('pages/artists.html', artists=data)
 
-@app.route('/artists/search', methods=['POST'])#❌	SEARCH #❌	
+@app.route('/artists/search', methods=['POST'])#✅	SEARCH #✅
 def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
+  search_key = request.form.get('search_term', '')
+  # <<Stand Out>> Implement Search Artists by City and State.
+  response = db.session.query(Artist).filter(
+       Artist.name.ilike(search_key+'%') 
+    or Artist.city.ilike(search_key+'%') 
+    or Artist.state.ilike(search_key+'%')
+  ).all()
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
-  }
-  return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+  return render_template('pages/search_artists.html', results=response, search_term=search_key)
 
 @app.route('/artists/<int:artist_id>') #❌	READ #❌	
 def show_artist(artist_id):
@@ -351,9 +397,9 @@ def show_artist(artist_id):
   data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
   return render_template('pages/show_artist.html', artist=data)
 
-#  Update #❌	UPDATE #❌	
+#  Update 	
 #  ----------------------------------------------------------------
-@app.route('/artists/<int:artist_id>/edit', methods=['GET'])
+@app.route('/artists/<int:artist_id>/edit', methods=['GET'])#❌ UPDATE - populate #❌
 def edit_artist(artist_id):
   form = ArtistForm()
   artist={
@@ -379,7 +425,7 @@ def edit_artist_submission(artist_id):
 
   return redirect(url_for('show_artist', artist_id=artist_id))
 
-@app.route('/venues/<int:venue_id>/edit', methods=['GET']) #❌	UPDATE #❌	
+@app.route('/venues/<int:venue_id>/edit', methods=['GET']) #❌ UPDATE - populate #❌
 def edit_venue(venue_id):
   form = VenueForm()
   venue={

@@ -13,7 +13,7 @@ from flask_moment import Moment
 from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler, error, exception
-from flask_wtf import Form
+from flask_wtf import FlaskForm
 from forms import *
 from models import *
 from flask_wtf.csrf import CSRFProtect
@@ -64,10 +64,8 @@ def search(db_class, skey):
   # Searching by "San Francisco, CA" should return all artists or venues in San Francisco, CA.
   #src: https://hackersandslackers.com/database-queries-sqlalchemy-orm/
 
-  
   # ---> "ColumnOperators.like() renders the LIKE operator, which is case insensitive on some backends, and case sensitive on others."
   # ---> "For guaranteed case-insensitive comparisons, use ColumnOperators.ilike()." src: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
-
   data=[]
   results = db.session.query(db_class).filter(db_class.name.ilike(f'%{skey}%')|db_class.city.ilike(f'%{skey}%')|db_class.state.ilike(f'%{skey}%')).all()
   for result in results:
@@ -89,7 +87,6 @@ def search(db_class, skey):
 @app.route('/')
 def index():
   return render_template('pages/home.html')
-
 
 #  Venues
 #  ----------------------------------------------------------------
@@ -198,7 +195,7 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion 
-  form = VenueForm(request.form, meta={'csrf':False})
+  form = VenueForm(request.form)
   name = form.name.data
   if form.validate:
       try:
@@ -234,7 +231,7 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>/delete', methods=['POST'])#✅ DELETE #✅	
 @csrf.exempt
-def delete_venue(venue_id):#! Thank you for your tip much appreciated :)
+def delete_venue(venue_id):#*IT WORKED Thank you for your tip much appreciated :)
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   try:
@@ -385,22 +382,11 @@ def edit_artist_submission(artist_id):
     db.session.close()
   return redirect(url_for('show_artist', artist_id=artist_id))
 
-@app.route('/venues/<int:venue_id>/edit', methods=['GET']) #✅ UPDATE - populate #✅#✅#✅#✅#✅#✅#✅#✅#✅#✅#✅
+@app.route('/venues/<int:venue_id>/edit', methods=['GET']) #✅ UPDATE - populate #✅
 def edit_venue(venue_id):
-  form = VenueForm()
-  venue = Venue.query.get(venue_id)
+  venue = Venue.query.get_or_404(venue_id)
   if venue: 
-    form.name.data = venue.name
-    form.genres.data = venue.genres
-    form.address.data = venue.address
-    form.city.data = venue.city
-    form.state.data = venue.state
-    form.phone.data = venue.phone
-    form.website_link.data = venue.website
-    form.facebook_link.data = venue.facebook_link
-    form.seeking_talent.data = venue.seeking_talent
-    form.seeking_description.data = venue.seeking_description
-    form.image_link.data = venue.image_link
+    form = VenueForm(obj=venue)
   else: flash('venue not found')
   # TODO: populate form with values from venue with ID <venue_id>
   return render_template('forms/edit_venue.html', form=form, venue=venue)
@@ -409,19 +395,10 @@ def edit_venue(venue_id):
 def edit_venue_submission(venue_id):
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
-  venue = Venue.query.get(venue_id)
+  form = VenueForm(request.form)
   try: 
-    venue.name = request.form['name']
-    venue.city = request.form['city']
-    venue.state = request.form['state']
-    venue.address = request.form['address']
-    venue.phone = request.form['phone']
-    venue.genres = request.form.getlist('genres')
-    venue.image_link = request.form['image_link']
-    venue.facebook_link = request.form['facebook_link']
-    venue.website = request.form['website_link']
-    venue.seeking_talent = True if 'seeking_talent' in request.form else False 
-    venue.seeking_description = request.form['seeking_description']
+    venue = Venue.query.get(venue_id)
+    venue = form.populate_obj(venue)
     db.session.commit()
   except: 
     flash('Ops! somthing went wrong the update was unsuccessful!')  
@@ -445,35 +422,26 @@ def create_artist_submission():
   # TODO: modify data to be the data object returned from db insertion
   form = ArtistForm(request.form)
   name = form.name.data
-  if form.validate():
-      try:
-          name_reserved = db.session.query(Artist).filter_by(name=name).first()
-          if name_reserved: 
-            flash('venue name reserved')
-            return render_template('forms/new_venue.html')
-          
-          new_artist = Artist()
-          form.populate_obj(new_artist)
-          db.session.add(new_artist) 
-          db.session.commit()
-          # on successful db insert, flash success
-          flash('Artist ' + name + ' was successfully listed!')
-          return render_template('pages/home.html')  
-      except:
-      # TODO: on unsuccessful db insert, flash an error instead.
-          flash('An error occurred. Artist ' + name + ' could not be listed.')
-          db.session.rollback()
-          form = ArtistForm()
-          return render_template('forms/new_artist.html', form=form) 
-      finally:
-          db.session.close()
-  else:
-    msg = []
-    for field, err in form.errors.items():
-        msg.append(field + ' ' + '|'.join(err))
-    flash('Errors ' + str(msg))
-    return render_template('pages/new_artist.html', form=form)
-
+  try:
+     name_reserved = db.session.query(Artist).filter_by(name=name).first()
+     if name_reserved: 
+       flash('venue name reserved')
+       return render_template('pages/show_artist.html')
+     new_artist = Artist()
+     form.populate_obj(new_artist)
+     db.session.add(new_artist) 
+     db.session.commit()
+     # on successful db insert, flash success
+     flash('Artist ' + name + ' was successfully listed!')
+     return redirect(url_for('artists'))  
+  except:
+    # TODO: on unsuccessful db insert, flash an error instead.
+     flash('An error occurred. Artist ' + name + ' could not be listed.')
+     db.session.rollback()
+     form = ArtistForm()
+     return render_template('pages/show_artist.html')
+  finally:
+     db.session.close()
 
 #  Shows	#✅ READ #✅
 #  ----------------------------------------------------------------

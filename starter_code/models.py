@@ -13,7 +13,7 @@ db = SQLAlchemy() #*remember: to avoid circular import
 # argument, you map a new class directly to the association table. " src: https://docs.sqlalchemy.org/en/14/orm/basic_relationships.html#many-to-many
 
 class Venue(db.Model):
-    __tablename__ = 'Venue'
+    __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False, unique=True)
@@ -27,15 +27,15 @@ class Venue(db.Model):
     website = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    artists = db.relationship("Artist", secondary="shows", lazy="joined", cascade='all, delete')
+    artists = db.relationship("Artist", secondary="show", lazy="joined", cascade='all, delete')
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
 class Artist(db.Model):
-    __tablename__ = 'Artist'
+    __tablename__ = 'artist'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False, unique=True)
+    name = db.Column(db.String, unique=True)
     city = db.Column(db.String(120), nullable=False)
     state = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120))
@@ -45,19 +45,19 @@ class Artist(db.Model):
     website = db.Column(db.String(120))
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    venue = db.relationship("Venue", secondary="shows", lazy="joined", cascade='all, delete')
+    venue = db.relationship("Venue", secondary="show",  lazy="joined", cascade='all, delete')
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
 class Show(db.Model):
-    __tablename__ = 'shows'
+    __tablename__ = 'show'
     id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
     start_time = db.Column(db.DateTime)
  
-    venue = db.relationship(Venue, backref=db.backref("Show", lazy=True))
-    artist = db.relationship(Artist, backref=db.backref("Show", lazy=True))
+    venue = db.relationship(Venue, backref=db.backref("shows", lazy=True))
+    artist = db.relationship(Artist, backref=db.backref("shows", lazy=True))
 
 #src: 
 # https://michaelcho.me/article/many-to-many-relationships-in-sqlalchemy-models-flask/ 

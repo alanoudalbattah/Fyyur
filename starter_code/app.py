@@ -123,15 +123,6 @@ def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   return render_template('pages/search_venues.html', results=search(Venue, request.form.get('search_term', '')), search_term=request.form.get('search_term', ''))
 
-
-
-
-
-
-
-
-
-
 @app.route('/venues/<int:venue_id>')#✅ READ #✅
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
@@ -242,7 +233,7 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>/delete', methods=['POST'])#✅ DELETE #✅	
 @csrf.exempt
-def delete_venue(venue_id):#*IT WORKED Thank you for your tip much appreciated :)
+def delete_venue(venue_id):#Thank you for your tip much appreciated :)
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   try:

@@ -1,6 +1,8 @@
-from app import db 
-# many to many relationship, linked by an intermediary table.
+from flask_sqlalchemy import SQLAlchemy
 
+db = SQLAlchemy() #*remember: to avoid circular import
+
+# many to many relationship, linked by an intermediary table.
 #" When using the relationship.backref parameter instead of relationship.back_populates, 
 # the backref will automatically use the same relationship.secondary argument for the reverse relationship: "
 
@@ -25,7 +27,7 @@ class Venue(db.Model):
     website = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    artists = db.relationship("Artist", secondary="shows", lazy=True)
+    artists = db.relationship("Artist", secondary="shows", lazy=True, cascade='all, delete')
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
@@ -43,7 +45,7 @@ class Artist(db.Model):
     website = db.Column(db.String(120))
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
-    venue = db.relationship("Venue", secondary="shows", lazy=True)
+    venue = db.relationship("Venue", secondary="shows", lazy=True, cascade='all, delete')
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 

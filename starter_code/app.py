@@ -123,6 +123,15 @@ def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   return render_template('pages/search_venues.html', results=search(Venue, request.form.get('search_term', '')), search_term=request.form.get('search_term', ''))
 
+
+
+
+
+
+
+
+
+
 @app.route('/venues/<int:venue_id>')#✅ READ #✅
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
@@ -156,9 +165,9 @@ def show_venue(venue_id):
 
   for past_show in all_past_shows:
     past_shows_list.append({
-      "venue_id": past_show.artist_id,
-      "venue_name": past_show.artist.name,
-      "venue_image_link": past_show.artist.image_link,
+      "artist_id": past_show.artist_id,
+      "artist_name": past_show.artist.name,
+      "artist_image_link": past_show.artist.image_link,
       "start_time": format_datetime(str(past_show.start_time))
     })
 
@@ -172,9 +181,9 @@ def show_venue(venue_id):
 
   for upcomming_show in all_upcoming_shows:
     upcoming_shows_list.append({
-      "venue_id": upcomming_show.artist_id,
-      "venue_name": upcomming_show.artist.name,
-      "venue_image_link": upcomming_show.artist.image_link,
+      "artist_id": upcomming_show.artist_id,
+      "artist_name": upcomming_show.artist.name,
+      "artist_image_link": upcomming_show.artist.image_link,
       "start_time": format_datetime(str(upcomming_show.start_time)) 
     })
 
@@ -182,6 +191,23 @@ def show_venue(venue_id):
   data['upcoming_shows_count'] = len(upcoming_shows_list)
 
   return render_template('pages/show_venue.html', venue=data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 #src: https://www.guru99.com/python-dictionary-append.html
 #  Create Venue #✅
 #  ----------------------------------------------------------------
@@ -309,9 +335,9 @@ def show_artist(artist_id):
 
   for past_show in all_past_shows:
     past_shows_list.append({
-      "artist_id": past_show.artist_id,
-      "artist_name": past_show.artist.name,
-      "artist_image_link": past_show.artist.image_link,
+      "venue_id": past_show.venue_id,
+      "venue_name": past_show.venue.name,
+      "venue_image_link": past_show.venue.image_link,
       "start_time": format_datetime(str(past_show.start_time))
     })
 
@@ -325,9 +351,9 @@ def show_artist(artist_id):
 
   for upcomming_show in all_upcoming_shows:
     upcoming_shows_list.append({
-      "artist_id": upcomming_show.artist_id,
-      "artist_name": upcomming_show.artist.name,
-      "artist_image_link": upcomming_show.artist.image_link,
+      "venue_id": upcomming_show.venue_id,
+      "venue_name": upcomming_show.venue.name,
+      "venue_image_link": upcomming_show.venue.image_link,
       "start_time": format_datetime(str(upcomming_show.start_time))
       
     })
@@ -338,21 +364,11 @@ def show_artist(artist_id):
 
 #  Update 	
 #  ----------------------------------------------------------------
-@app.route('/artists/<int:artist_id>/edit', methods=['GET'])#✅ UPDATE - populate #✅#✅#✅#✅#✅#✅#✅#✅#✅#✅#✅
+@app.route('/artists/<int:artist_id>/edit', methods=['GET'])#✅ UPDATE - populate #
 def edit_artist(artist_id):
-  form = ArtistForm()
-  artist = Artist.query.get(artist_id)
+  artist = Venue.query.get_or_404(artist_id)
   if artist: 
-    form.name.data = artist.name
-    form.city.data = artist.city
-    form.state.data = artist.state
-    form.phone.data = artist.phone
-    form.genres.data = artist.genres
-    form.facebook_link.data = artist.facebook_link
-    form.image_link.data = artist.image_link
-    form.website_link.data = artist.website
-    form.seeking_venue.data = artist.seeking_venue
-    form.seeking_description.data = artist.seeking_description
+    form = ArtistForm(obj=artist)
   else: flash('artist not found')
   # TODO: populate form with fields from artist with ID <artist_id>
   return render_template('forms/edit_artist.html', form=form, artist=artist)
@@ -361,18 +377,10 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
-  artist = Artist.query.get(artist_id)
+  form = ArtistForm(request.form)
   try: 
-    artist.name = request.form['name']
-    artist.city = request.form['city']
-    artist.state = request.form['state']
-    artist.phone = request.form['phone']
-    artist.genres = request.form.getlist('genres')
-    artist.image_link = request.form['image_link']
-    artist.facebook_link = request.form['facebook_link']
-    artist.website = request.form['website_link']
-    artist.seeking_venue = True if 'seeking_venue' in request.form else False 
-    artist.seeking_description = request.form['seeking_description']
+    artist = Venue.query.get(artist_id)
+    artist = form.populate_obj(artist)
     db.session.commit()
     flash('Artist ' + artist.name + ' was Successfully Updated!')  
   except: 
@@ -476,7 +484,7 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST']) #✅ CREATE #✅	
 def create_show_submission():
-    form = Show(request.form)
+    form = ShowForm(request.form)
     if form.validate():
         venue_id = form.venue_id.data
         artist_id = form.artist_id.data

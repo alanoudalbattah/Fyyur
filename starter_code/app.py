@@ -192,21 +192,6 @@ def show_venue(venue_id):
 
   return render_template('pages/show_venue.html', venue=data)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   
 #src: https://www.guru99.com/python-dictionary-append.html
 #  Create Venue #✅
@@ -228,7 +213,7 @@ def create_venue_submission():
           name_reserved = db.session.query(Venue).filter_by(name=name).first()
           if name_reserved: 
             flash('venue name reserved')
-            return render_template('forms/new_venue.html') 
+            return render_template('forms/new_venue.html',form=form) 
           new_venue = Venue()
           form.populate_obj(new_venue)
           db.session.add(new_venue) 
@@ -366,7 +351,7 @@ def show_artist(artist_id):
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])#✅ UPDATE - populate #
 def edit_artist(artist_id):
-  artist = Venue.query.get_or_404(artist_id)
+  artist = Artist.query.get_or_404(artist_id)
   if artist: 
     form = ArtistForm(obj=artist)
   else: flash('artist not found')
@@ -379,10 +364,10 @@ def edit_artist_submission(artist_id):
   # artist record with ID <artist_id> using the new attributes
   form = ArtistForm(request.form)
   try: 
-    artist = Venue.query.get(artist_id)
+    artist = Artist.query.get(artist_id)
     artist = form.populate_obj(artist)
     db.session.commit()
-    flash('Artist ' + artist.name + ' was Successfully Updated!')  
+    flash('Successfully Updated!')  
   except: 
     flash('Ops! somthing went wrong the update was unsuccessful!')  
     db.session.rollback()
@@ -408,6 +393,7 @@ def edit_venue_submission(venue_id):
     venue = Venue.query.get(venue_id)
     venue = form.populate_obj(venue)
     db.session.commit()
+    flash('Successfully Updated!') 
   except: 
     flash('Ops! somthing went wrong the update was unsuccessful!')  
     db.session.rollback()
@@ -433,21 +419,20 @@ def create_artist_submission():
   try:
      name_reserved = db.session.query(Artist).filter_by(name=name).first()
      if name_reserved: 
-       flash('venue name reserved')
-       return render_template('pages/show_artist.html')
+       flash('artist name reserved')
+       return render_template('forms/new_artist.html',form=form)
      new_artist = Artist()
      form.populate_obj(new_artist)
      db.session.add(new_artist) 
      db.session.commit()
      # on successful db insert, flash success
-     flash('Artist ' + name + ' was successfully listed!')
-     return redirect(url_for('artists'))  
+     flash('Successfully listed!')
+     return render_template('pages/home.html')  
   except:
     # TODO: on unsuccessful db insert, flash an error instead.
-     flash('An error occurred. Artist ' + name + ' could not be listed.')
+     flash('Could not be listed.')
      db.session.rollback()
-     form = ArtistForm()
-     return render_template('pages/show_artist.html')
+     return render_template('forms/new_artist.html',form=form)
   finally:
      db.session.close()
 

@@ -8,7 +8,7 @@ from flask import (
   Flask, render_template,
   request, Response, 
   flash, redirect,
-  url_for, abort)
+  url_for)
 from flask_moment import Moment
 from flask_migrate import Migrate
 import logging
@@ -27,7 +27,6 @@ app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config') # * configured in the config.py file --------> DB name: fyyur
 csrf = CSRFProtect(app)
-csrf.init_app(app)
 db.init_app(app) # link an instance of a database to interact with :)
 migrate = Migrate(app, db) #to use migrations :) 
 
@@ -179,10 +178,9 @@ def show_venue(venue_id):
 
   
 #src: https://www.guru99.com/python-dictionary-append.html
-#  Create Venue #✅
+#  Create Venue
 #  ----------------------------------------------------------------
-
-@app.route('/venues/create', methods=['GET'])
+@app.route('/venues/create', methods=['GET']) #✅ CREATE #✅
 def create_venue_form():
   form = VenueForm()
   return render_template('forms/new_venue.html', form=form)
@@ -191,11 +189,17 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion 
+
+  #? Data validation can be done on both the front and back end.
+  #* WTForms adds a basic front-end validation to our form field.
+  #* works even by using tools like Postman.
+  #  validate user input in Flask forms using the Flask-WTForms extension.
+  #  https://stackabuse.com/flask-form-validation-with-flask-wtf
+
   form = VenueForm() #? wtf-forms Quickstart src: https://flask-wtf.readthedocs.io/en/0.15.x/quickstart/#creating-forms
-  name = form.name.data
-  if form.validate:
+  if form.validate_on_submit():
       try:
-          name_reserved = db.session.query(Venue).filter_by(name=name).first()
+          name_reserved = db.session.query(Venue).filter_by(name=form.name.data).first()
           if name_reserved: 
             flash('venue name reserved')
             return render_template('forms/new_venue.html',form=form) 
@@ -204,26 +208,18 @@ def create_venue_submission():
           db.session.add(new_venue) 
           db.session.commit()
           # on successful db insert, flash success
-          flash('Venue '+name+' was successfully Created!')
-          return render_template('pages/home.html')  
+          flash('Venue '+form.name.data+' was successfully Created!')  
       except:
           # TODO: on unsuccessful db insert, flash an error instead.
           # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
           # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
           # flash('An error occurred. Artist ' + new_venue.name + ' could not be listed.')
-          flash('An error occurred. Venue '+ name + ' could not be Created!.')
+          flash('An error occurred. Venue '+ form.name.data + ' could not be Created!.')
           db.session.rollback()
-          return render_template('forms/new_venue.html', form=form) 
       finally:
           db.session.close()
-  else:
-       # Thank you NICE TIP
-      msg = []
-      for field, err in form.errors.items():
-        msg.append(field + ' ' + '|'.join(err))
-      flash('Errors ' + str(msg))
-      return render_template('pages/new_venue.html', form=form)
-
+      redirect('/')
+  else: return render_template('forms/new_venue.html', form=form)
 
 @app.route('/venues/<venue_id>/delete', methods=['POST'])#✅ DELETE #✅	
 # The DELETE method only works in HTML 5 with Javascript (HTML DOM and XMLHttpRequest).
@@ -235,8 +231,7 @@ def delete_venue(venue_id):
     # clicking that button delete it from the db then redirect the user to the homepage
   try:
     Venue_2b_deleted = db.session.query(Venue).filter_by(id=venue_id).first_or_404() 
-    # first_or_404()
-    #? "Like first() but aborts with 404 if not found instead of returning None."
+    # first_or_404() #? "Like first() but aborts with 404 if not found instead of returning None."
     #src: https://flask-sqlalchemy.palletsprojects.com/en/2.x/api/
     db.session.delete(Venue_2b_deleted)
     db.session.commit()
@@ -247,9 +242,7 @@ def delete_venue(venue_id):
   finally:
     db.session.close()
   return redirect('/')
-
-  #* FEEDBACK for me 
-  # SQLAlchemy Object already attached to session (current_session)
+  #* FEEDBACK  
   # Read more about the object that is already attached to another session.
   # https://stackoverflow.com/questions/24291933/sqlalchemy-object-already-attached-to-session
 

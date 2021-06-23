@@ -28,7 +28,7 @@ class Venue(db.Model):
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
     artists = db.relationship("Artist", secondary="show", lazy="joined", cascade='all, delete')
-
+    #? CASCADE ALL, DELETE to delete the children (Shows) automatically before deleting the parent
     # TODO: implement any missing fields, as a database migration using Flask-Migrate ✅
 
 class Artist(db.Model):

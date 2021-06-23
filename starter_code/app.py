@@ -8,7 +8,7 @@ from flask import (
   Flask, render_template,
   request, Response, 
   flash, redirect,
-  url_for)
+  url_for, abort)
 from flask_moment import Moment
 from flask_migrate import Migrate
 import logging
@@ -17,14 +17,7 @@ from flask_wtf import FlaskForm
 from forms import *
 from models import *
 from flask_wtf.csrf import CSRFProtect
-
-#the links you provided in the feedback are not found :(
-#!https://flask-wtf.readthedocs.io/en/stable/
-#!https://flask-wtf.readthedocs.io/en/stable/csrf.html
-#* found these insted :)
-#* https://flask-wtf.readthedocs.io/en/0.15.x/csrf/
-#* https://wtforms.readthedocs.io/en/2.3.x/csrf/
-#* Thank you ...
+#? CSRF Protection src: https://flask-wtf.readthedocs.io/en/0.15.x/csrf/ 
 
 #----------------------------------------------------------------------------#
 # App Config.
@@ -34,6 +27,7 @@ app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config') # * configured in the config.py file --------> DB name: fyyur
 csrf = CSRFProtect(app)
+csrf.init_app(app)
 db.init_app(app) # link an instance of a database to interact with :)
 migrate = Migrate(app, db) #to use migrations :) 
 
@@ -197,7 +191,7 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion 
-  form = VenueForm(request.form)
+  form = VenueForm() #? wtf-forms Quickstart src: https://flask-wtf.readthedocs.io/en/0.15.x/quickstart/#creating-forms
   name = form.name.data
   if form.validate:
       try:
@@ -232,30 +226,32 @@ def create_venue_submission():
 
 
 @app.route('/venues/<venue_id>/delete', methods=['POST'])#✅ DELETE #✅	
-@csrf.exempt
-def delete_venue(venue_id):#Thank you for your tip much appreciated :)
+# The DELETE method only works in HTML 5 with Javascript (HTML DOM and XMLHttpRequest).
+# Read more: https://stackoverflow.com/questions/165779/are-the-put-delete-head-etc-methods-available-in-most-web-browsers
+def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
-  try:
-    v = db.session.query(Venue).filter_by(id=venue_id).first_or_404()   
-    #there is two cases 
-    # 1 - the venue dose not exists in the db which is a problem since the user should not
-    # have access to the venue in the first place !!!
-    #* first_or_404() 
-    # 2 - the venue is linked to a show ... for now ill just assume that the user simply can't delete the venue. 
-    #* CASCADE all, delete 
-    db.session.delete(v)
-    db.session.commit()
     # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
     # clicking that button delete it from the db then redirect the user to the homepage
-    flash('The venue is successfully deleted with all of its shows.')
-    return redirect('/venues')
+  try:
+    Venue_2b_deleted = db.session.query(Venue).filter_by(id=venue_id).first_or_404() 
+    # first_or_404()
+    #? "Like first() but aborts with 404 if not found instead of returning None."
+    #src: https://flask-sqlalchemy.palletsprojects.com/en/2.x/api/
+    db.session.delete(Venue_2b_deleted)
+    db.session.commit()
+    flash('Venue is successfully deleted with all of its shows.')
   except:
-    error('exception occurred!')
+    flash('Venue is not deleted, exception occurred!')
     db.session.rollback()
-    return redirect('/venues'+venue_id)
   finally:
     db.session.close()
+  return redirect('/')
+
+  #* FEEDBACK for me 
+  # SQLAlchemy Object already attached to session (current_session)
+  # Read more about the object that is already attached to another session.
+  # https://stackoverflow.com/questions/24291933/sqlalchemy-object-already-attached-to-session
 
 #  Artists
 #  ----------------------------------------------------------------
